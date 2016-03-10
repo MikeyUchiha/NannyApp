@@ -13,6 +13,7 @@ using NannyApp.ViewModels.Manage;
 
 namespace NannyApp.Controllers
 {
+    [RequireHttps]
     [Authorize]
     public class ManageController : Controller
     {

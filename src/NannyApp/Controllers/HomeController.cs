@@ -6,6 +6,7 @@ using Microsoft.AspNet.Mvc;
 
 namespace NannyApp.Controllers
 {
+    [RequireHttps]
     public class HomeController : Controller
     {
         public IActionResult Index()
