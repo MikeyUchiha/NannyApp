@@ -66,6 +66,12 @@ namespace NannyApp
                 options.SendGridPassword = Configuration["SENDGRID_PASS"];
                 options.SendGridKey = Configuration["SENDGRID_APIKEY"];
             });
+            services.Configure<AuthMessageSMSSenderOptions>(options =>
+            {
+                options.SID = Configuration["TWILIO_SID"];
+                options.AuthToken = Configuration["TWILIO_AUTHTOKEN"];
+                options.SendNumber = Configuration["TWILIO_NUMBER"];
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

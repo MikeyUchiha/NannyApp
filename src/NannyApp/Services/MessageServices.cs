@@ -11,12 +11,19 @@ namespace NannyApp.Services
     // For more details see this link http://go.microsoft.com/fwlink/?LinkID=532713
     public class AuthMessageSender : IEmailSender, ISmsSender
     {
-        public AuthMessageSender(IOptions<AuthMessageSenderOptions> optionsAccessor)
+        public AuthMessageSender(IOptions<AuthMessageSenderOptions> optionsAccessor, IOptions<AuthMessageSMSSenderOptions> smsOptionsAccessor)
         {
             Options = optionsAccessor.Value;
+            SMSOptions = smsOptionsAccessor.Value;
         }
 
+        //public AuthMessageSender(IOptions<AuthMessageSMSSenderOptions> optionsAccessor)
+        //{
+        //    SMSOptions = optionsAccessor.Value;
+        //}
+
         public AuthMessageSenderOptions Options { get; private set; }
+        public AuthMessageSMSSenderOptions SMSOptions { get; private set; }
 
         public Task SendEmailAsync(string email, string subject, string message)
         {
@@ -55,7 +62,14 @@ namespace NannyApp.Services
 
         public Task SendSmsAsync(string number, string message)
         {
-            // Plug in your SMS service here to send a text message.
+            var twilio = new Twilio.TwilioRestClient(
+                SMSOptions.SID,           // Account Sid from dashboard
+                SMSOptions.AuthToken);    // Auth Token
+
+            var result = twilio.SendMessage(SMSOptions.SendNumber, number, message);
+            // Use the debug output for testing without receiving a SMS message.
+            // Remove the Debug.WriteLine(message) line after debugging.
+            // System.Diagnostics.Debug.WriteLine(message);
             return Task.FromResult(0);
         }
     }

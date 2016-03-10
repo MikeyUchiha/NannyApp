@@ -1,4 +1,4 @@
-﻿{
+{
   "userSecretsId": "aspnet5-NannyApp-4a713fdb-fa3b-431b-b223-a3c2ac479f27",
   "version": "1.0.0-*",
   "compilationOptions": {
@@ -29,7 +29,8 @@
         "Microsoft.Extensions.Logging.Debug": "1.0.0-rc1-final",
         "Microsoft.Extensions.OptionsModel": "1.0.0-rc1-final",
         "Microsoft.VisualStudio.Web.BrowserLink.Loader": "14.0.0-rc1-final",
-        "Sendgrid": "6.3.4"
+        "Sendgrid": "6.3.4",
+        "Twilio": "4.5.0"
     },
 
   "commands": {
