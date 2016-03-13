@@ -9,9 +9,15 @@ using Microsoft.AspNet.Mvc;
 using Microsoft.AspNet.Mvc.Rendering;
 using Microsoft.Data.Entity;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.PlatformAbstractions;
 using NannyApp.Models;
 using NannyApp.Services;
 using NannyApp.ViewModels.Account;
+using System.IO;
+using Microsoft.Extensions.Configuration;
+using System.Data.SqlClient;
+using System.Globalization;
+using Microsoft.AspNet.Hosting;
 
 namespace NannyApp.Controllers
 {
@@ -24,21 +30,44 @@ namespace NannyApp.Controllers
         private readonly IEmailSender _emailSender;
         private readonly ISmsSender _smsSender;
         private readonly ILogger _logger;
+        private readonly ApplicationDbContext _applicationDbContext;
+        private static IApplicationEnvironment _hostingEnvironment;
+        private static IHostingEnvironment _environment;
+
+        public static string EConfUser { get; set; }
+        public static string connection = null;
+        public static string command = null;
+        public static string parameterName = null;
+        public static string methodName = null;
+        string codeType = null;
+
+        public static string OEmail { get; set; }
+        public static string OBirthday { get; set; }
+        public static string OFname { get; set; }
+        public static string OLname { get; set; }
 
         public AccountController(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             IEmailSender emailSender,
             ISmsSender smsSender,
-            ILoggerFactory loggerFactory)
+            ILoggerFactory loggerFactory,
+            ApplicationDbContext applicationDbContext,
+            IApplicationEnvironment hostingEnvironment,
+            IHostingEnvironment environment)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
             _smsSender = smsSender;
             _logger = loggerFactory.CreateLogger<AccountController>();
+            _applicationDbContext = applicationDbContext;
+            _hostingEnvironment = hostingEnvironment;
+            _environment = environment;
+            connection = GetConnectionString("DefaultConnection");
         }
 
+        #region Login
         //
         // GET: /Account/Login
         [HttpGet]
@@ -60,21 +89,22 @@ namespace NannyApp.Controllers
             if (ModelState.IsValid)
             {
                 // Require the user to have a confirmed email before they can log on.
-                var user = await _userManager.FindByNameAsync(model.Email);
+                var user = await _userManager.FindByNameAsync(model.LoginUsername);
                 if (user != null)
                 {
                     if (!await _userManager.IsEmailConfirmedAsync(user))
                     {
-                        ModelState.AddModelError(string.Empty, "You must have a confirmed email to log in.");
-                        return View(model);
+                        EConfUser = model.LoginUsername;
+                        return RedirectToAction(nameof(AccountController.EmailConfirmationFailed), "Account");
                     }
                 }
                 // This doesn't count login failures towards account lockout
                 // To enable password failures to trigger account lockout, set lockoutOnFailure: true
-                var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, lockoutOnFailure: false);
+                var result = await _signInManager.PasswordSignInAsync(model.LoginUsername, model.LoginPassword, model.RememberMe, lockoutOnFailure: false);
                 if (result.Succeeded)
                 {
                     _logger.LogInformation(1, "User logged in.");
+                    UpdateLastLoginDate(model.LoginUsername);
                     return RedirectToLocal(returnUrl);
                 }
                 if (result.RequiresTwoFactor)
@@ -96,7 +126,9 @@ namespace NannyApp.Controllers
             // If we got this far, something failed, redisplay form
             return View(model);
         }
+        #endregion Login
 
+        #region Register
         //
         // GET: /Account/Register
         [HttpGet]
@@ -115,27 +147,184 @@ namespace NannyApp.Controllers
         {
             if (ModelState.IsValid)
             {
-                var user = new ApplicationUser { UserName = model.Email, Email = model.Email };
-                var result = await _userManager.CreateAsync(user, model.Password);
-                if (result.Succeeded)
+                var custEmail = FindEmail(model.RegisterEmail);
+                var custUserName = FindUserName(model.RegisterUsername);
+                var user = new ApplicationUser
                 {
-                    //For more information on how to enable account confirmation and password reset please visit http://go.microsoft.com/fwlink/?LinkID=532713
-                    //Send an email with this link
-                    var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-                    var callbackUrl = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, code = code }, protocol: HttpContext.Request.Scheme);
-                    await _emailSender.SendEmailAsync(model.Email, "Confirm your account",
-                        "Please confirm your account by clicking this link: <a href=\"" + callbackUrl + "\">link</a>");
-                    //await _signInManager.SignInAsync(user, isPersistent: false);
-                    _logger.LogInformation(3, "User created a new account with password.");
-                    return RedirectToAction(nameof(HomeController.Index), "Home");
+                    UserName = model.RegisterUsername,
+                    Email = model.RegisterEmail,
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
+                    Country = model.Country,
+                    BirthDate = model.BirthDate,
+                    JoinDate = DateTime.Now,
+                    EmailLinkDate = DateTime.Now,
+                    LastLoginDate = DateTime.Now
+                };
+                if (custEmail == null && custUserName == null)
+                {
+                    var result = await _userManager.CreateAsync(user, model.RegisterPassword);
+                    if (result.Succeeded)
+                    {
+                        //For more information on how to enable account confirmation and password reset please visit http://go.microsoft.com/fwlink/?LinkID=532713
+                        //Send an email with this link
+                        //var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                        //var callbackUrl = Url.Action("ConfirmEmail", "Account", new { userId = user.Id, date = DateTime.Now, code = code }, protocol: HttpContext.Request.Scheme);
+                        //await _emailSender.SendEmailAsync(model.RegisterEmail, "Confirm your account",
+                        //    "Please confirm your account by clicking this link: <a href=\"" + callbackUrl + "\">link</a>");
+                        //await _signInManager.SignInAsync(user, isPersistent: false);
+
+                        // Send an email with this link
+                        codeType = "EmailConfirmation";
+                        await SendEmail("ConfirmEmail", "Account", user, model.RegisterEmail, "WelcomeEmail", "Confirm your account");
+
+                        _logger.LogInformation(3, "User created a new account with password.");
+                        return RedirectToAction(nameof(AccountController.ConfirmationEmailSent), "Account");
+                    }
+                    AddErrors(result);
                 }
-                AddErrors(result);
+                else
+                {
+                    if(custEmail != null)
+                    {
+                        ModelState.AddModelError("", "Email is already registered.");
+                    }
+                    if(custUserName != null)
+                    {
+                        ModelState.AddModelError("", "Username " + model.RegisterUsername + " is already taken.");
+                    }
+                }
             }
 
             // If we got this far, something failed, redisplay form
             return View(model);
         }
+        #endregion Register
 
+        #region SendEmail
+
+        public async Task SendEmail(string actionName, string controllerName, ApplicationUser user, string email, string emailTemplate, string emailSubject)
+        {
+            string code = null;
+            if (codeType == "EmailConfirmation")
+            {
+                code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            }
+            else if (codeType == "ResetPassword")
+            {
+                code = await _userManager.GeneratePasswordResetTokenAsync(user);
+            }
+            var callbackUrl = Url.Action(actionName, controllerName, new { userId = user.Id, date = DateTime.Now, code = code }, protocol: HttpContext.Request.Scheme);
+            var message = await EMailTemplate(emailTemplate);
+            message = message.Replace("@ViewBag.Name", CultureInfo.CurrentCulture.TextInfo.ToTitleCase(user.FirstName));
+            message = message.Replace("@ViewBag.Link", callbackUrl);
+
+            await _emailSender.SendEmailAsync(email, emailSubject, message);
+        }
+
+        #endregion SendEmail
+
+        #region ConfirmEmail
+        // GET: /Account/ConfirmEmail
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> ConfirmEmail(string userId, DateTime date, string code)
+        {
+            if (userId == null || code == null)
+            {
+                return View("Error");
+            }
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return RedirectToAction(nameof(AccountController.ConfirmationLinkExpired), "Account");
+            }
+            var emailConf = EmailConfirmationById(userId);
+            if (emailConf == true)
+            {
+                return RedirectToAction(nameof(AccountController.ConfirmationLinkUsed), "Account");
+            }
+            if (date != null)
+            {
+                if (date.AddHours(1) < DateTime.Now)
+                {
+                    return RedirectToAction(nameof(AccountController.ConfirmationLinkExpired), "Account");
+                }
+                else
+                {
+                    var result = await _userManager.ConfirmEmailAsync(user, code);
+                    return View(result.Succeeded ? "ConfirmEmail" : "Error");
+                }
+            }
+            else
+            {
+                return View("Error");
+            }
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SendConfirmationMail()
+        {
+            string res = null;
+            string connection = GetConnectionString("DefaultConnection");
+            using (SqlConnection myConnection = new SqlConnection(connection))
+            using (SqlCommand cmd = new SqlCommand("SELECT Email AS Email FROM dbo.AspNetUsers WHERE UserName = @UserName", myConnection))
+            {
+                cmd.Parameters.AddWithValue("@UserName", EConfUser);
+                myConnection.Open();
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        // Read advances to the next row.
+                        if (reader.Read())
+                        {
+                            // To avoid unexpected bugs access columns by name.
+                            res = reader["Email"].ToString();
+                            var user = await _userManager.FindByEmailAsync(res);
+                            UpdateEmailLinkDate(EConfUser);
+                            codeType = "EmailConfirmation";
+                            await SendEmail("ConfirmEmail", "Account", user, res, "WelcomeEmail", "Confirm your account");
+                        }
+                        myConnection.Close();
+                    }
+                }
+            }
+            return RedirectToAction(nameof(AccountController.ConfirmationEmailSent), "Account");
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult EmailConfirmationFailed()
+        {
+            return View();
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult ConfirmationEmailSent()
+        {
+            return View();
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult ConfirmationLinkExpired()
+        {
+            return View();
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult ConfirmationLinkUsed()
+        {
+            return View();
+        }
+        #endregion ConfirmEmail
+
+        #region LogOff
         //
         // POST: /Account/LogOff
         [HttpPost]
@@ -146,7 +335,9 @@ namespace NannyApp.Controllers
             _logger.LogInformation(4, "User logged out.");
             return RedirectToAction(nameof(HomeController.Index), "Home");
         }
+        #endregion LogOff
 
+        #region ExternalLogin
         //
         // POST: /Account/ExternalLogin
         [HttpPost]
@@ -163,37 +354,79 @@ namespace NannyApp.Controllers
         //
         // GET: /Account/ExternalLoginCallback
         [HttpGet]
+        [Authorize]
         [AllowAnonymous]
         public async Task<IActionResult> ExternalLoginCallback(string returnUrl = null)
         {
+            string userid = null;
+            bool custEmailConf = false;
+            string custUserName = null;
+
             var info = await _signInManager.GetExternalLoginInfoAsync();
             if (info == null)
             {
                 return RedirectToAction(nameof(Login));
             }
 
-            // Sign in the user with this external login provider if the user already has a login.
-            var result = await _signInManager.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, isPersistent: false);
-            if (result.Succeeded)
+            string userprokey = info.ProviderKey;
+            userid = FindUserId(userprokey);
+            if(userid != null)
             {
-                _logger.LogInformation(5, "User logged in with {Name} provider.", info.LoginProvider);
-                return RedirectToLocal(returnUrl);
+                custEmailConf = EmailConfirmationById(userid);
+                custUserName = FindUserNameById(userid);
             }
-            if (result.RequiresTwoFactor)
+
+            if (custEmailConf == false && custUserName != null)
             {
-                return RedirectToAction(nameof(SendCode), new { ReturnUrl = returnUrl });
-            }
-            if (result.IsLockedOut)
-            {
-                return View("Lockout");
+                EConfUser = custUserName;
+                return RedirectToAction(nameof(AccountController.EmailConfirmationFailed), "Account");
             }
             else
             {
-                // If the user does not have an account, then ask the user to create an account.
-                ViewData["ReturnUrl"] = returnUrl;
-                ViewData["LoginProvider"] = info.LoginProvider;
-                var email = info.ExternalPrincipal.FindFirstValue(ClaimTypes.Email);
-                return View("ExternalLoginConfirmation", new ExternalLoginConfirmationViewModel { Email = email });
+                // Sign in the user with this external login provider if the user already has a login.
+                var result = await _signInManager.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, isPersistent: false);
+                if (result.Succeeded)
+                {
+                    _logger.LogInformation(5, "User logged in with {Name} provider.", info.LoginProvider);
+                    return RedirectToLocal(returnUrl);
+                }
+                if (result.RequiresTwoFactor)
+                {
+                    return RedirectToAction(nameof(SendCode), new { ReturnUrl = returnUrl });
+                }
+                if (result.IsLockedOut)
+                {
+                    return View("Lockout");
+                }
+                else
+                {
+                    // If the user does not have an account, then ask the user to create an account.
+                    ViewData["ReturnUrl"] = returnUrl;
+                    ViewData["LoginProvider"] = info.LoginProvider;
+
+                    if(info.LoginProvider == "Facebook")
+                    {
+                        OEmail = info.ExternalPrincipal.FindFirst(c => c.Type == "urn:facebook:email").Value;
+                        OBirthday = info.ExternalPrincipal.FindFirst(c => c.Type == "urn:facebook:birthday").Value;
+                        OFname = info.ExternalPrincipal.FindFirst(c => c.Type == "urn:facebook:first_name").Value;
+                        OLname = info.ExternalPrincipal.FindFirst(c => c.Type == "urn:facebook:last_name").Value;
+                    }
+                    else if(info.LoginProvider == "Google")
+                    {
+                        OEmail = info.ExternalPrincipal.FindFirstValue(ClaimTypes.Email);
+                        OFname = info.ExternalPrincipal.FindFirstValue(ClaimTypes.GivenName);
+                        OLname = info.ExternalPrincipal.FindFirstValue(ClaimTypes.Surname);
+                    }
+                    else
+                    {
+                        OEmail = null;
+                        OBirthday = null;
+                        OFname = null;
+                        OLname = null;
+                    }
+
+                    return View("ExternalLoginConfirmation");
+                }
             }
         }
 
@@ -217,43 +450,57 @@ namespace NannyApp.Controllers
                 {
                     return View("ExternalLoginFailure");
                 }
-                var user = new ApplicationUser { UserName = model.Email, Email = model.Email };
-                var result = await _userManager.CreateAsync(user);
-                if (result.Succeeded)
+                var custEmail = FindEmail(model.Email);
+                var custUserName = FindUserName(model.ExtUsername);
+                var user = new ApplicationUser
                 {
-                    result = await _userManager.AddLoginAsync(user, info);
+                    UserName = model.ExtUsername,
+                    Email = model.Email,
+                    FirstName = model.ExtFirstName,
+                    LastName = model.ExtLastName,
+                    Country = model.ExtCountry,
+                    BirthDate = model.ExtBirthDate,
+                    JoinDate = DateTime.Now,
+                    EmailLinkDate = DateTime.Now,
+                    LastLoginDate = DateTime.Now
+                };
+
+                if (custEmail == null && custUserName == null)
+                {
+                    var result = await _userManager.CreateAsync(user);
                     if (result.Succeeded)
                     {
-                        await _signInManager.SignInAsync(user, isPersistent: false);
-                        _logger.LogInformation(6, "User created an account using {Name} provider.", info.LoginProvider);
-                        return RedirectToLocal(returnUrl);
+                        result = await _userManager.AddLoginAsync(user, info);
+                        if (result.Succeeded)
+                        {
+                            codeType = "EmailConfirmation";
+                            await SendEmail("ConfirmEmail", "Account", user, model.Email, "WelcomeEmail", "Confirm your account");
+
+                            _logger.LogInformation(6, "User created an account using {Name} provider.", info.LoginProvider);
+                            return RedirectToAction(nameof(AccountController.ConfirmationEmailSent), "Account");
+                        }
+                    }
+                    AddErrors(result);
+                }
+                else
+                {
+                    if (custEmail != null)
+                    {
+                        ModelState.AddModelError("", "Email is already registered.");
+                    }
+                    if (custUserName != null)
+                    {
+                        ModelState.AddModelError("", "Username " + model.ExtUsername + " is already taken.");
                     }
                 }
-                AddErrors(result);
             }
 
             ViewData["ReturnUrl"] = returnUrl;
-            return View(model);
+            return View("ExternalLoginConfirmation");
         }
+        #endregion ExternalLogin
 
-        // GET: /Account/ConfirmEmail
-        [HttpGet]
-        [AllowAnonymous]
-        public async Task<IActionResult> ConfirmEmail(string userId, string code)
-        {
-            if (userId == null || code == null)
-            {
-                return View("Error");
-            }
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-            {
-                return View("Error");
-            }
-            var result = await _userManager.ConfirmEmailAsync(user, code);
-            return View(result.Succeeded ? "ConfirmEmail" : "Error");
-        }
-
+        #region ForgotPassword
         //
         // GET: /Account/ForgotPassword
         [HttpGet]
@@ -300,7 +547,9 @@ namespace NannyApp.Controllers
         {
             return View();
         }
+        #endregion ForgotPassword
 
+        #region ResetPassword
         //
         // GET: /Account/ResetPassword
         [HttpGet]
@@ -344,7 +593,9 @@ namespace NannyApp.Controllers
         {
             return View();
         }
+        #endregion ResetPassword
 
+        #region SendCode
         //
         // GET: /Account/SendCode
         [HttpGet]
@@ -398,7 +649,9 @@ namespace NannyApp.Controllers
 
             return RedirectToAction(nameof(VerifyCode), new { Provider = model.SelectedProvider, ReturnUrl = model.ReturnUrl, RememberMe = model.RememberMe });
         }
+        #endregion SendCode
 
+        #region VerifyCode
         //
         // GET: /Account/VerifyCode
         [HttpGet]
@@ -445,6 +698,7 @@ namespace NannyApp.Controllers
                 return View(model);
             }
         }
+        #endregion VerifyCode
 
         #region Helpers
 
@@ -473,6 +727,184 @@ namespace NannyApp.Controllers
             }
         }
 
+        public async Task<string> EMailTemplate(string template)
+        {
+            var templateFilePath = Path.Combine(_environment.WebRootPath, @"Templates\\" + template + ".cshtml");
+            StreamReader objstreamreaderfile = new StreamReader(templateFilePath);
+            var body = await objstreamreaderfile.ReadToEndAsync();
+            objstreamreaderfile.Close();
+            return body;
+        }
+
+        public string GetConnectionString(string connection)
+        {
+            var configurationPath = Path.Combine(_hostingEnvironment.ApplicationBasePath, "appsettings.json");
+            var configBuilder = new ConfigurationBuilder()
+                .AddJsonFile(configurationPath)
+                .AddEnvironmentVariables();
+
+            var configuration = configBuilder.Build();
+            string conOut = configuration["Data:"+ connection + ":ConnectionString"];
+            return conOut;
+        }
+
+        public static string ReturnString(string str)
+        {
+            string strOut = null;
+            using (SqlConnection myConnection = new SqlConnection(connection))
+            using (SqlCommand cmd = new SqlCommand(command, myConnection))
+            {
+                cmd.Parameters.AddWithValue(parameterName, str);
+                myConnection.Open();
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        if (reader.Read())
+                        {
+                            if (methodName == "FindEmail")
+                            {
+                                strOut = reader["Email"].ToString();
+                            }
+                            else if (methodName == "FindUserName" || methodName == "FindUserNameById")
+                            {
+                                strOut = reader["UserName"].ToString();
+                            }
+                            else if (methodName == "FindUserId")
+                            {
+                                strOut = reader["UserId"].ToString();
+                            }
+
+                        }
+                        myConnection.Close();
+                    }
+                    return strOut;
+                }
+            }
+        }
+        public static string FindEmail(string email)
+        {
+            command = "SELECT Email AS Email FROM AspNetUsers WHERE Email = @Email";
+            parameterName = "@Email";
+            methodName = "FindEmail";
+            return ReturnString(email);
+        }
+        public string FindUserName(string username)
+        {
+            command = "SELECT UserName AS UserName FROM AspNetUsers WHERE UserName = @UserName";
+            parameterName = "@UserName";
+            methodName = "FindUserName";
+            return ReturnString(username);
+        }
+        public string FindUserNameById(string userid)
+        {
+            command = "SELECT UserName AS UserName FROM AspNetUsers WHERE Id = @Id";
+            parameterName = "@Id";
+            methodName = "FindUserNameById";
+            return ReturnString(userid);
+        }
+        public string FindUserId(string userprokey)
+        {
+            command = "SELECT UserId AS UserId FROM AspNetUserLogins WHERE ProviderKey = @ProviderKey";
+            parameterName = "@ProviderKey";
+            methodName = "FindUserId";
+            return ReturnString(userprokey);
+        }
+
+        public bool ReturnBool(string str)
+        {
+            bool econfOut = false;
+            string res = null;
+            using (SqlConnection myConnection = new SqlConnection(connection))
+            using (SqlCommand cmd = new SqlCommand(command, myConnection))
+            {
+                cmd.Parameters.AddWithValue(parameterName, str);
+                myConnection.Open();
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        if (reader.Read())
+                        {
+                            res = reader["EmailConfirmed"].ToString();
+                            if (res == "False")
+                            {
+                                econfOut = false;
+                            }
+                            else
+                            {
+                                econfOut = true;
+                            }
+                        }
+                        myConnection.Close();
+                    }
+                    return econfOut;
+                }
+            }
+        }
+        public bool EmailConfirmation(string username)
+        {
+            command = "SELECT EmailConfirmed AS EmailConfirmed FROM AspNetUsers WHERE UserName = @UserName";
+            parameterName = "@UserName";
+            return ReturnBool(username);
+        }
+        public bool EmailConfirmationById(string userid)
+        {
+            command = "SELECT EmailConfirmed AS EmailConfirmed FROM AspNetUsers WHERE Id = @Id";
+            parameterName = "@Id";
+            return ReturnBool(userid);
+        }
+
+        public int UpdateDatabase(string username)
+        {
+            using (SqlConnection myConnection = new SqlConnection(connection))
+            using (SqlCommand cmd = new SqlCommand(command, myConnection))
+            {
+                cmd.Parameters.AddWithValue(parameterName, username);
+                myConnection.Open();
+                return cmd.ExecuteNonQuery();
+            }
+        }
+
+        public int UpdateEmailLinkDate(string username)
+        {
+            command = "UPDATE AspNetUsers SET EmailLinkDate = '" + DateTime.Now + "' WHERE UserName = @UserName";
+            parameterName = "@UserName";
+            return UpdateDatabase(username);
+        }
+        public int UpdateLastLoginDate(string username)
+        {
+            command = "UPDATE AspNetUsers SET LastLoginDate = '" + DateTime.Now + "' WHERE UserName = @UserName";
+            parameterName = "@UserName";
+            return UpdateDatabase(username);
+        }
+
+
+        public static IEnumerable<SelectListItem> GetCountries()
+        {
+            RegionInfo country = new RegionInfo(new CultureInfo("en-US", false).LCID);
+            List<SelectListItem> countryNames = new List<SelectListItem>();
+            string cult = CultureInfo.CurrentCulture.EnglishName;
+            string count = cult.Substring(cult.IndexOf('(') + 1,
+                             cult.LastIndexOf(')') - cult.IndexOf('(') - 1);
+            //To get the Country Names from the CultureInfo installed in windows
+            foreach (CultureInfo cul in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
+            {
+                country = new RegionInfo(new CultureInfo(cul.Name, false).LCID);
+                countryNames.Add(new SelectListItem()
+                {
+                    Text = country.DisplayName,
+                    Value = country.DisplayName,
+                    Selected = count == country.EnglishName
+                });
+            }
+            //Assigning all Country names to IEnumerable
+            IEnumerable<SelectListItem> nameAdded =
+                countryNames.GroupBy(x => x.Text).Select(
+                    x => x.FirstOrDefault()).ToList<SelectListItem>()
+                    .OrderBy(x => x.Text);
+            return nameAdded;
+        }
         #endregion
     }
 }

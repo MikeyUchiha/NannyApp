@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.AspNet.Authentication.OAuth;
 using Microsoft.AspNet.Builder;
 using Microsoft.AspNet.Hosting;
 using Microsoft.AspNet.Identity.EntityFramework;
@@ -12,11 +13,19 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NannyApp.Models;
 using NannyApp.Services;
+using System.Threading;
+using System.Data.SqlClient;
 
 namespace NannyApp
 {
     public class Startup
     {
+        private Timer threadingTimer;
+        string connection = null;
+        string command = null;
+        string parameterName = null;
+        string methodName = null;
+
         public Startup(IHostingEnvironment env)
         {
             // Set up configuration sources.
@@ -36,6 +45,9 @@ namespace NannyApp
 
             builder.AddEnvironmentVariables();
             Configuration = builder.Build();
+
+            connection = Configuration["Data:DefaultConnection:ConnectionString"];
+            StartTimer();
         }
 
         public IConfigurationRoot Configuration { get; set; }
@@ -118,18 +130,49 @@ namespace NannyApp
                 options.AppId = Configuration["Authentication:Facebook:AppId"];
                 options.AppSecret = Configuration["Authentication:Facebook:AppSecret"];
                 options.Scope.Add("email");
+                options.Scope.Add("user_birthday");
                 options.SaveTokensAsClaims = true;
                 options.BackchannelHttpHandler = new HttpClientHandler();
-                options.UserInformationEndpoint = "https://graph.facebook.com/v2.5/me?fields=id,name,email";
+                options.UserInformationEndpoint = "https://graph.facebook.com/v2.5/me?fields=id,name,birthday,first_name,last_name,email";
+                options.Events = new OAuthEvents
+                {
+                    OnCreatingTicket = (context) =>
+                    {
+                        context.Identity.AddClaim(new System.Security.Claims.Claim("FacebookAccessToken", context.AccessToken));
+                        foreach (var claim in context.User)
+                        {
+                            var claimType = string.Format("urn:facebook:{0}", claim.Key);
+                            string claimValue = claim.Value.ToString();
+                            if (!context.Identity.HasClaim(claimType, claimValue))
+                                context.Identity.AddClaim(new System.Security.Claims.Claim(claimType, claimValue, "XmlSchemaString", "Facebook"));
+                        }
+                        return Task.FromResult(0);
+                    }
+                };
             });
 
             app.UseGoogleAuthentication(options =>
             {
                 options.ClientId = Configuration["Authentication:Google:ClientId"];
                 options.ClientSecret = Configuration["Authentication:Google:ClientSecret"];
+                options.Scope.Add("https://www.googleapis.com/auth/plus.login");
+                options.Scope.Add("https://www.googleapis.com/auth/plus.profile.emails.read");
+                options.Events = new OAuthEvents
+                {
+                    OnCreatingTicket = (context) =>
+                    {
+                        context.Identity.AddClaim(new System.Security.Claims.Claim("GoogleAccessToken", context.AccessToken));
+                        foreach (var claim in context.User)
+                        {
+                            var claimType = string.Format("urn:google:{0}", claim.Key);
+                            string claimValue = claim.Value.ToString();
+                            if (!context.Identity.HasClaim(claimType, claimValue))
+                                context.Identity.AddClaim(new System.Security.Claims.Claim(claimType, claimValue, "XmlSchemaString", "Google"));
+                        }
+                        return Task.FromResult(0);
+                    }
+                };
             });
-
-            // To configure external authentication please see http://go.microsoft.com/fwlink/?LinkID=532715
 
             app.UseMvc(routes =>
             {
@@ -141,5 +184,99 @@ namespace NannyApp
 
         // Entry point for the application.
         public static void Main(string[] args) => WebApplication.Run<Startup>(args);
+
+        #region DeleteUser
+        private void DeleteUserFromDatabase(string userid)
+        {
+            List<CommAndParams> commAndParam = new List<CommAndParams>();
+            commAndParam.Add(new CommAndParams() { command = "DELETE FROM AspNetUserLogins WHERE UserId = @UserId", parameterName = "@UserId" });
+            commAndParam.Add(new CommAndParams() { command = "DELETE FROM AspNetUserClaims WHERE UserId = @UserId", parameterName = "@UserId" });
+            commAndParam.Add(new CommAndParams() { command = "DELETE FROM AspNetUserRoles WHERE UserId = @UserId", parameterName = "@UserId" });
+            commAndParam.Add(new CommAndParams() { command = "DELETE FROM AspNetUsers WHERE Id = @Id", parameterName = "@Id" });
+            foreach (var cap in commAndParam)
+            {
+                command = cap.command;
+                parameterName = cap.parameterName;
+                using (SqlConnection myConnection = new SqlConnection(connection))
+                using (SqlCommand cmd = new SqlCommand(command, myConnection))
+                {
+                    cmd.Parameters.AddWithValue(parameterName, userid);
+                    myConnection.Open();
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        if (reader.HasRows)
+                        {
+                            cmd.ExecuteNonQuery();
+                            myConnection.Close();
+                        }
+                    }
+                }
+            }
+        }
+
+        private void DeleteUser()
+        {
+            using (SqlConnection myConnection = new SqlConnection(connection))
+            using (SqlCommand cmd = new SqlCommand(command, myConnection))
+            {
+                cmd.Parameters.AddWithValue(parameterName, false);
+                myConnection.Open();
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        // Read advances to the next row.
+                        if (reader.Read())
+                        {
+                            if (methodName == "DeleteUncorfirmedAccounts")
+                            {
+                                DateTime emailLinkDate = (DateTime)reader["EmailLinkDate"];
+                                if (emailLinkDate.AddHours(1) < DateTime.Now)
+                                {
+                                    DeleteById();
+                                }
+                            }
+                            else if (methodName == "DeleteById")
+                            {
+                                string userid = reader["Id"].ToString();
+                                DeleteUserFromDatabase(userid);
+                            }
+                        }
+                        myConnection.Close();
+                    }
+                }
+            }
+        }
+
+        private void DeleteById()
+        {
+            command = "SELECT Id AS Id FROM AspNetUsers WHERE EmailConfirmed = @EmailConfirmed";
+            parameterName = "@EmailConfirmed";
+            methodName = "DeleteById";
+            DeleteUser();
+        }
+        private void DeleteUncorfirmedAccounts(object sender)
+        {
+            command = "SELECT EmailLinkDate AS EmailLinkDate FROM AspNetUsers WHERE EmailConfirmed = @EmailConfirmed";
+            parameterName = "@EmailConfirmed";
+            methodName = "DeleteUncorfirmedAccounts";
+            DeleteUser();
+        }
+
+        private void StartTimer()
+        {
+            if (threadingTimer == null)
+            {
+                //raise timer callback 
+                string str = DateTime.Now.ToLongTimeString(); threadingTimer = new Timer(new TimerCallback(DeleteUncorfirmedAccounts), str, 1000, 1000);
+            }
+        }
+        #endregion DeleteUser
+    }
+
+    public class CommAndParams
+    {
+        public string command { get; set; }
+        public string parameterName { get; set; }
     }
 }

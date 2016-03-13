@@ -17,11 +17,6 @@ namespace NannyApp.Services
             SMSOptions = smsOptionsAccessor.Value;
         }
 
-        //public AuthMessageSender(IOptions<AuthMessageSMSSenderOptions> optionsAccessor)
-        //{
-        //    SMSOptions = optionsAccessor.Value;
-        //}
-
         public AuthMessageSenderOptions Options { get; private set; }
         public AuthMessageSMSSenderOptions SMSOptions { get; private set; }
 

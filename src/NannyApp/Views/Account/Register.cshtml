@@ -1,4 +1,5 @@
 ﻿@model RegisterViewModel
+@using NannyApp.Controllers
 @{
     ViewData["Title"] = "Register";
 }
@@ -10,17 +11,38 @@
     <hr />
     <div asp-validation-summary="ValidationSummary.All" class="text-danger"></div>
     <div class="form-group">
-        <label asp-for="Email" class="col-md-2 control-label"></label>
+        <label asp-for="FirstName" class="col-md-2 control-label"></label>
         <div class="col-md-10">
-            <input asp-for="Email" class="form-control" />
-            <span asp-validation-for="Email" class="text-danger"></span>
+            <input asp-for="FirstName" class="form-control" />
+            <span asp-validation-for="FirstName" class="text-danger"></span>
         </div>
     </div>
     <div class="form-group">
-        <label asp-for="Password" class="col-md-2 control-label"></label>
+        <label asp-for="LastName" class="col-md-2 control-label"></label>
         <div class="col-md-10">
-            <input asp-for="Password" class="form-control" />
-            <span asp-validation-for="Password" class="text-danger"></span>
+            <input asp-for="LastName" class="form-control" />
+            <span asp-validation-for="LastName" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label asp-for="RegisterUsername" class="col-md-2 control-label"></label>
+        <div class="col-md-10">
+            <input asp-for="RegisterUsername" class="form-control" />
+            <span asp-validation-for="RegisterUsername" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label asp-for="RegisterEmail" class="col-md-2 control-label"></label>
+        <div class="col-md-10">
+            <input asp-for="RegisterEmail" class="form-control" />
+            <span asp-validation-for="RegisterEmail" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label asp-for="RegisterPassword" class="col-md-2 control-label"></label>
+        <div class="col-md-10">
+            <input asp-for="RegisterPassword" class="form-control" />
+            <span asp-validation-for="RegisterPassword" class="text-danger"></span>
         </div>
     </div>
     <div class="form-group">
@@ -28,6 +50,22 @@
         <div class="col-md-10">
             <input asp-for="ConfirmPassword" class="form-control" />
             <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="form-group">
+        <label asp-for="BirthDate" class="col-md-2 control-label"></label>
+        <div class="col-md-10">
+            <input asp-for="BirthDate" class="form-control" />
+            <span asp-validation-for="BirthDate" class="text-danger"></span>
+        </div>
+    </div>
+    @{
+        ViewData["Country"] = AccountController.GetCountries();
+    }
+    <div class="form-group">
+        <label asp-for="Country" class="col-md-2 control-label"></label>
+        <div class="col-md-10">
+            @Html.DropDownListFor(model => model.Country, (IEnumerable<SelectListItem>)ViewData["Country"], new { @class = "droplist" })
         </div>
     </div>
     <div class="form-group">
