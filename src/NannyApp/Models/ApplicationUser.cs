@@ -16,5 +16,7 @@ namespace NannyApp.Models
         public DateTime JoinDate { get; internal set; }
         public DateTime LastLoginDate { get; internal set; }
         public string LastName { get; internal set; }
+
+        public FilePath ProfilePhoto { get; set; }
     }
 }

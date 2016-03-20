@@ -17,5 +17,7 @@ namespace NannyApp.ViewModels.Manage
         public bool TwoFactor { get; set; }
 
         public bool BrowserRemembered { get; set; }
+
+        public string ProfilePhotoUrl { get; set; }
     }
 }

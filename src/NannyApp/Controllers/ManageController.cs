@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Security.Claims;
@@ -10,6 +11,10 @@ using Microsoft.Extensions.Logging;
 using NannyApp.Models;
 using NannyApp.Services;
 using NannyApp.ViewModels.Manage;
+using Microsoft.AspNet.Hosting;
+using Microsoft.AspNet.Http;
+using Microsoft.Net.Http.Headers;
+using System.IO;
 
 namespace NannyApp.Controllers
 {
@@ -22,19 +27,25 @@ namespace NannyApp.Controllers
         private readonly IEmailSender _emailSender;
         private readonly ISmsSender _smsSender;
         private readonly ILogger _logger;
+        private IFileService _fileService;
+        private INannyAppRepository _repository;
 
         public ManageController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         IEmailSender emailSender,
         ISmsSender smsSender,
-        ILoggerFactory loggerFactory)
+        ILoggerFactory loggerFactory,
+        IFileService fileService,
+        INannyAppRepository repository)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
             _smsSender = smsSender;
             _logger = loggerFactory.CreateLogger<ManageController>();
+            _fileService = fileService;
+            _repository = repository;
         }
 
         //
@@ -49,16 +60,25 @@ namespace NannyApp.Controllers
                 : message == ManageMessageId.Error ? "An error has occurred."
                 : message == ManageMessageId.AddPhoneSuccess ? "Your phone number was added."
                 : message == ManageMessageId.RemovePhoneSuccess ? "Your phone number was removed."
+                : message == ManageMessageId.PhotoUploadSuccess ? "Your photo has been uploaded."
+                : message == ManageMessageId.FileExtensionError ? "Only jpg, png, and gif file formats are allowed."
                 : "";
 
             var user = await GetCurrentUserAsync();
+            var profilephoto = _repository.GetUserWithProfilePhotoByUserName(User.GetUserName()).ProfilePhoto;
+            string profilePhotoUrl = null;
+            if(profilephoto != null)
+            {
+                profilePhotoUrl = profilephoto.FileUrl;
+            }
             var model = new IndexViewModel
             {
                 HasPassword = await _userManager.HasPasswordAsync(user),
                 PhoneNumber = await _userManager.GetPhoneNumberAsync(user),
                 TwoFactor = await _userManager.GetTwoFactorEnabledAsync(user),
                 Logins = await _userManager.GetLoginsAsync(user),
-                BrowserRemembered = await _signInManager.IsTwoFactorClientRememberedAsync(user)
+                BrowserRemembered = await _signInManager.IsTwoFactorClientRememberedAsync(user),
+                ProfilePhotoUrl = profilePhotoUrl
             };
             return View(model);
         }
@@ -317,6 +337,95 @@ namespace NannyApp.Controllers
             return RedirectToAction(nameof(ManageLogins), new { Message = message });
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult UploadProfilePhoto(IFormFile file)
+        {
+            _fileService.CreateAndConfigureAsync("profilephoto", true);
+            var user = _repository.GetUserWithProfilePhotoByUserName(User.GetUserName());
+            if (user == null)
+            {
+                return View("Error");
+            }
+            var uploadedFile = file;
+            try
+            {
+                if (uploadedFile != null || uploadedFile.Length > 0)
+                {
+                    var fileName = ContentDispositionHeaderValue.Parse(file.ContentDisposition).FileName.Trim('"').ToLower();
+                    if (fileName.EndsWith(".png") || fileName.EndsWith(".jpg") || fileName.EndsWith(".gif"))
+                    {
+                        var profilePhoto = new FilePath();
+                        profilePhoto.FileType = FileType.Profile_Photo;
+
+                        var fileExtension = Path.GetExtension(fileName);
+                        string filePath = User.GetUserName() + fileExtension;
+
+                        profilePhoto.FileName = filePath;
+                        profilePhoto.FileUrl = _fileService.UploadFile(file, "profilephoto", filePath);
+                        profilePhoto.DateUploaded = DateTime.Now;
+
+                        _logger.LogInformation(String.Format("The full filename is: {0}", profilePhoto.FileName));
+
+                        try
+                        {
+                            _repository.AddOrUpdateProfilePhotoByUser(profilePhoto, user);
+                            if (_repository.SaveAll())
+                            {
+                                _logger.LogInformation("Saved to the database.");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError("Unable to add to the database", ex);
+                            return RedirectToAction(nameof(Index), new { Message = ManageMessageId.Error });
+                        }
+
+                        return RedirectToAction(nameof(Index), new { Message = ManageMessageId.PhotoUploadSuccess });
+                    }
+                    else
+                    {
+                        return RedirectToAction(nameof(Index), new { Message = ManageMessageId.FileExtensionError });
+                    }
+                }
+                return RedirectToAction(nameof(Index), new { Message = ManageMessageId.FileExtensionError });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Unable to locate file", ex);
+                return RedirectToAction(nameof(Index), new { Message = ManageMessageId.Error });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult DeleteProfilePhoto()
+        {
+            var user = _repository.GetUserWithProfilePhotoByUserName(User.GetUserName());
+            if (user == null)
+            {
+                return View("Error");
+            }
+            else
+            {
+                var profilePhoto = user.ProfilePhoto;
+                if(profilePhoto != null)
+                {
+                    try
+                    {
+                        _fileService.DeleteFile("profilepicture", profilePhoto.FileName);
+                        _repository.RemoveProfilePhotoByUser(user);
+                        _repository.SaveAll();
+                        return RedirectToAction(nameof(Index), "Manage");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError("Unable to delete profile photo", ex);
+                    }
+                }
+            }
+            return View("Error");
+        }
         #region Helpers
 
         private void AddErrors(IdentityResult result)
@@ -336,7 +445,9 @@ namespace NannyApp.Controllers
             SetPasswordSuccess,
             RemoveLoginSuccess,
             RemovePhoneSuccess,
-            Error
+            Error,
+            PhotoUploadSuccess,
+            FileExtensionError
         }
 
         private async Task<ApplicationUser> GetCurrentUserAsync()

@@ -8,9 +8,10 @@ using NannyApp.Models;
 namespace NannyApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20160315040937_FilePaths")]
+    partial class FilePaths
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "7.0.0-rc1-16348")
@@ -217,19 +218,17 @@ namespace NannyApp.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<int?>("ActivityId");
+                    b.Property<int>("ActivityId");
 
-                    b.Property<int?>("ChildId");
+                    b.Property<int>("ChildId");
 
                     b.Property<DateTime>("DateUploaded");
 
-                    b.Property<int?>("FamilyId");
+                    b.Property<int>("FamilyId");
 
                     b.Property<string>("FileName");
 
                     b.Property<int>("FileType");
-
-                    b.Property<string>("FileUrl");
 
                     b.Property<string>("UserId");
 

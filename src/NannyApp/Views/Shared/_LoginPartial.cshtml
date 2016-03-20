@@ -1,9 +1,25 @@
-﻿@using System.Security.Claims
+﻿@inject INannyAppRepository _repository
+@using System.Security.Claims
 
 @if (User.IsSignedIn())
 {
     <form asp-controller="Account" asp-action="LogOff" method="post" id="logoutForm" class="navbar-right">
         <ul class="nav navbar-nav navbar-right">
+            <li>
+                @{
+                    string imgUrl = "";
+                    var user = _repository.GetUserWithProfilePhotoByUserName(User.GetUserName());
+                    var profilePhoto = user.ProfilePhoto;
+                    if (profilePhoto != null)
+                    {
+                        imgUrl = user.ProfilePhoto.FileUrl;
+                    }
+                }
+                @if (imgUrl != "")
+                {
+                    <img src="@imgUrl" style="width:auto; height:50px;"/>
+                }
+            </li>
             <li>
                 <a asp-controller="Manage" asp-action="Index" title="Manage">Hello @User.GetUserName()!</a>
             </li>
@@ -12,9 +28,9 @@
             </li>
         </ul>
     </form>
-}
-else
-{
+                    }
+                    else
+                    {
     <ul class="nav navbar-nav navbar-right">
         <li><a asp-controller="Account" asp-action="Register">Register</a></li>
         <li><a asp-controller="Account" asp-action="Login">Log in</a></li>

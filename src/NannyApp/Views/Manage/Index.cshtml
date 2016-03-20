@@ -31,34 +31,55 @@
                 Phone Numbers can used as a second factor of verification in two-factor authentication.
             </p>
             @(Model.PhoneNumber ?? "None")
-                @if (Model.PhoneNumber != null)
-                {
-                    <br />
+            @if (Model.PhoneNumber != null)
+            {
+                <br />
                     <text>[&nbsp;&nbsp;<a asp-controller="Manage" asp-action="AddPhoneNumber">Change</a>&nbsp;&nbsp;]</text>
                     <form asp-controller="Manage" asp-action="RemovePhoneNumber" method="post" role="form">
                         [<button type="submit" class="btn btn-link">Remove</button>]
                     </form>
-                }
-                else
-                {
-                    <text>[&nbsp;&nbsp;<a asp-controller="Manage" asp-action="AddPhoneNumber">Add</a>&nbsp;&nbsp;]</text>
-                }
+            }
+            else
+            {
+                <text>[&nbsp;&nbsp;<a asp-controller="Manage" asp-action="AddPhoneNumber">Add</a>&nbsp;&nbsp;]</text>
+            }
         </dd>
 
         <dt>Two-Factor Authentication:</dt>
         <dd>
             @if (Model.TwoFactor)
-                {
-                    <form asp-controller="Manage" asp-action="DisableTwoFactorAuthentication" method="post" class="form-horizontal" role="form">
-                        Enabled [<button type="submit" class="btn btn-link">Disable</button>]
-                    </form>
-                }
-                else
-                {
-                    <form asp-controller="Manage" asp-action="EnableTwoFactorAuthentication" method="post" class="form-horizontal" role="form">
-                        [<button type="submit" class="btn btn-link">Enable</button>] Disabled
-                    </form>
-                }
+            {
+                <form asp-controller="Manage" asp-action="DisableTwoFactorAuthentication" method="post" class="form-horizontal" role="form">
+                    Enabled [<button type="submit" class="btn btn-link">Disable</button>]
+                </form>
+            }
+            else
+            {
+                <form asp-controller="Manage" asp-action="EnableTwoFactorAuthentication" method="post" class="form-horizontal" role="form">
+                    [<button type="submit" class="btn btn-link">Enable</button>] Disabled
+                </form>
+            }
+        </dd>
+        <dt>Profile Photo</dt>
+        
+        @if (Model.ProfilePhotoUrl != null)
+        {
+            <dd>
+                <img src="@Model.ProfilePhotoUrl" title="ProfilePhotoUrl" style="width:300px; height:auto;"/>
+            </dd>
+            <dd>
+                <form asp-controller="Manage" asp-action="DeleteProfilePhoto" method="post" enctype="multipart/form-data">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </dd>
+        }
+        <dt>Upload Profile Photo</dt>
+        <dd>
+            <form asp-controller="Manage" asp-action="UploadProfilePhoto" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" />
+                <button type="submit" class="btn btn-default">Upload</button>
+            </form>
         </dd>
     </dl>
 </div>
+

@@ -84,6 +84,12 @@ namespace NannyApp
                 options.AuthToken = Configuration["TWILIO_AUTHTOKEN"];
                 options.SendNumber = Configuration["TWILIO_NUMBER"];
             });
+            services.AddSingleton<IFileService, FileService>();
+            services.Configure<FileServiceOptions>(options =>
+            {
+                options.StorageConnectionString = Configuration["StorageConnectionString"];
+            });
+            services.AddScoped<INannyAppRepository, NannyAppRepository>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -111,7 +117,7 @@ namespace NannyApp
                         .CreateScope())
                     {
                         serviceScope.ServiceProvider.GetService<ApplicationDbContext>()
-                             .Database.Migrate();
+                            .Database.Migrate();
                     }
                 }
                 catch { }

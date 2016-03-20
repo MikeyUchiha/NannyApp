@@ -30,7 +30,6 @@ namespace NannyApp.Controllers
         private readonly IEmailSender _emailSender;
         private readonly ISmsSender _smsSender;
         private readonly ILogger _logger;
-        private readonly ApplicationDbContext _applicationDbContext;
         private static IApplicationEnvironment _hostingEnvironment;
         private static IHostingEnvironment _environment;
 
@@ -40,6 +39,7 @@ namespace NannyApp.Controllers
         public static string parameterName = null;
         public static string methodName = null;
         string codeType = null;
+        private INannyAppRepository _repository;
 
         public static string OEmail { get; set; }
         public static string OBirthday { get; set; }
@@ -52,18 +52,18 @@ namespace NannyApp.Controllers
             IEmailSender emailSender,
             ISmsSender smsSender,
             ILoggerFactory loggerFactory,
-            ApplicationDbContext applicationDbContext,
             IApplicationEnvironment hostingEnvironment,
-            IHostingEnvironment environment)
+            IHostingEnvironment environment,
+            INannyAppRepository repository)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
             _smsSender = smsSender;
             _logger = loggerFactory.CreateLogger<AccountController>();
-            _applicationDbContext = applicationDbContext;
             _hostingEnvironment = hostingEnvironment;
             _environment = environment;
+            _repository = repository;
             connection = GetConnectionString("DefaultConnection");
         }
 
@@ -159,7 +159,7 @@ namespace NannyApp.Controllers
                     BirthDate = model.BirthDate,
                     JoinDate = DateTime.Now,
                     EmailLinkDate = DateTime.Now,
-                    LastLoginDate = DateTime.Now
+                    LastLoginDate = DateTime.Now,
                 };
                 if (custEmail == null && custUserName == null)
                 {
