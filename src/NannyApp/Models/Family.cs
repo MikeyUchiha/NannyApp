@@ -9,6 +9,7 @@ namespace NannyApp.Models
         public string GeneralNotes { get; set; }
         public FilePath FamilyPhoto { get; set; }
 
+        public ICollection<Connection> Connections { get; set; }
         public ICollection<Child> Children { get; set; }
     }
 }

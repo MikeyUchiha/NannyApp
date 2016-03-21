@@ -15,6 +15,7 @@ using NannyApp.Models;
 using NannyApp.Services;
 using System.Threading;
 using System.Data.SqlClient;
+using Newtonsoft.Json.Serialization;
 
 namespace NannyApp
 {
@@ -67,7 +68,15 @@ namespace NannyApp
                 .AddEntityFrameworkStores<ApplicationDbContext>()
                 .AddDefaultTokenProviders();
 
-            services.AddMvc();
+            services.AddMvc()
+                .AddJsonOptions(options =>
+                {
+                    options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
+                })
+                .AddMvcOptions(options =>
+                {
+                    //options.Conventions.Add(new RouteVersioningApplicationModelConvention(3));
+                });
 
             // Add application services.
             services.AddTransient<IEmailSender, AuthMessageSender>();

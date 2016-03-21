@@ -10,6 +10,10 @@ namespace NannyApp.Models
         public DateTime? EndTime { get; set; }
         public bool HasStartTime { get; set; }
         public bool HasEndTime { get; set; }
+        public bool HasSubCategory { get; set; }
+        public string Group { get; set; }
+        public string Category { get; set; }
+        public string SubCategory { get; set; }
         public string ActitivityNotes { get; set; }
 
         public ICollection<FilePath> Photos { get; set; }

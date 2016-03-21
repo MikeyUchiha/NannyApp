@@ -25,6 +25,24 @@ namespace NannyApp.Models
                 .HasOne(p => p.User)
                 .WithOne(i => i.ProfilePhoto)
                 .HasForeignKey<FilePath>(p => p.UserId);
+
+            builder.Entity<Connection>()
+                .HasOne(c => c.User)
+                .WithMany(u => u.Connections)
+                .HasForeignKey(c => c.UserId);
+
+            builder.Entity<Connection>()
+                .HasOne(c => c.Family)
+                .WithMany(f => f.Connections)
+                .HasForeignKey(c => c.FamilyId);
+
+            builder.Entity<Activity>()
+                .Property(a => a.Group)
+                .IsRequired();
+
+            builder.Entity<Activity>()
+                .Property(a => a.Category)
+                .IsRequired();
         }
     }
 }

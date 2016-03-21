@@ -8,9 +8,10 @@ using NannyApp.Models;
 namespace NannyApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20160321011101_Connections")]
+    partial class Connections
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "7.0.0-rc1-16348")
@@ -105,25 +106,15 @@ namespace NannyApp.Migrations
 
                     b.Property<string>("ActitivityNotes");
 
-                    b.Property<string>("Category")
-                        .IsRequired();
-
                     b.Property<int?>("ChildId");
 
                     b.Property<DateTime?>("EndTime");
-
-                    b.Property<string>("Group")
-                        .IsRequired();
 
                     b.Property<bool>("HasEndTime");
 
                     b.Property<bool>("HasStartTime");
 
-                    b.Property<bool>("HasSubCategory");
-
                     b.Property<DateTime?>("StartTime");
-
-                    b.Property<string>("SubCategory");
 
                     b.HasKey("Id");
                 });
@@ -188,18 +179,6 @@ namespace NannyApp.Migrations
                         .HasAnnotation("Relational:Name", "UserNameIndex");
 
                     b.HasAnnotation("Relational:TableName", "AspNetUsers");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.Category", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<int>("GroupId");
-
-                    b.Property<string>("Name");
-
-                    b.HasKey("Id");
                 });
 
             modelBuilder.Entity("NannyApp.Models.Child", b =>
@@ -272,30 +251,6 @@ namespace NannyApp.Migrations
                     b.HasKey("Id");
                 });
 
-            modelBuilder.Entity("NannyApp.Models.Group", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<string>("Name");
-
-                    b.Property<string>("UserId");
-
-                    b.HasKey("Id");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.SubCategory", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<int>("CategoryId");
-
-                    b.Property<string>("Name");
-
-                    b.HasKey("Id");
-                });
-
             modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNet.Identity.EntityFramework.IdentityRole")
@@ -335,13 +290,6 @@ namespace NannyApp.Migrations
                         .HasForeignKey("ChildId");
                 });
 
-            modelBuilder.Entity("NannyApp.Models.Category", b =>
-                {
-                    b.HasOne("NannyApp.Models.Group")
-                        .WithMany()
-                        .HasForeignKey("GroupId");
-                });
-
             modelBuilder.Entity("NannyApp.Models.Child", b =>
                 {
                     b.HasOne("NannyApp.Models.Family")
@@ -377,20 +325,6 @@ namespace NannyApp.Migrations
                     b.HasOne("NannyApp.Models.ApplicationUser")
                         .WithOne()
                         .HasForeignKey("NannyApp.Models.FilePath", "UserId");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.Group", b =>
-                {
-                    b.HasOne("NannyApp.Models.ApplicationUser")
-                        .WithMany()
-                        .HasForeignKey("UserId");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.SubCategory", b =>
-                {
-                    b.HasOne("NannyApp.Models.Category")
-                        .WithMany()
-                        .HasForeignKey("CategoryId");
                 });
         }
     }
