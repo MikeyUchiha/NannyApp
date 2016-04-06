@@ -8,7 +8,7 @@ namespace NannyApp.Models
     public class Connection
     {
         public int Id { get; set; }
-        ConnectionType ConnectionType { get; set; }
+        public ConnectionType ConnectionType { get; set; }
 
         public string UserId { get; set; }
         public ApplicationUser User { get; set; }

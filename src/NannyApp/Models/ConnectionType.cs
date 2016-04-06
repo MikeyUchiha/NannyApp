@@ -8,7 +8,7 @@ namespace NannyApp.Models
 {
     public enum ConnectionType
     {
-        Caretaker,
+        Caretaker = 1,
         [Display(Name = "Family Member")]
         FamilyMember,
         Other

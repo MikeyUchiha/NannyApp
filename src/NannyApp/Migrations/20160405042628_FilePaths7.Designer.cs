@@ -8,9 +8,10 @@ using NannyApp.Models;
 namespace NannyApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20160405042628_FilePaths7")]
+    partial class FilePaths7
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "7.0.0-rc1-16348")
@@ -270,6 +271,8 @@ namespace NannyApp.Migrations
 
                     b.Property<string>("FileUrl");
 
+                    b.Property<string>("UserId");
+
                     b.HasKey("Id");
 
                     b.HasAnnotation("Relational:DiscriminatorProperty", "Discriminator");
@@ -332,7 +335,6 @@ namespace NannyApp.Migrations
                 {
                     b.HasBaseType("NannyApp.Models.FilePath");
 
-                    b.Property<string>("UserId");
 
                     b.HasAnnotation("Relational:DiscriminatorValue", "ProfilePhoto");
                 });
@@ -417,6 +419,10 @@ namespace NannyApp.Migrations
                     b.HasOne("NannyApp.Models.Activity")
                         .WithMany()
                         .HasForeignKey("ActivityId");
+
+                    b.HasOne("NannyApp.Models.ApplicationUser")
+                        .WithOne()
+                        .HasForeignKey("NannyApp.Models.FilePath", "UserId");
                 });
 
             modelBuilder.Entity("NannyApp.Models.Group", b =>
@@ -456,9 +462,6 @@ namespace NannyApp.Migrations
 
             modelBuilder.Entity("NannyApp.Models.ProfilePhoto", b =>
                 {
-                    b.HasOne("NannyApp.Models.ApplicationUser")
-                        .WithOne()
-                        .HasForeignKey("NannyApp.Models.ProfilePhoto", "UserId");
                 });
         }
     }

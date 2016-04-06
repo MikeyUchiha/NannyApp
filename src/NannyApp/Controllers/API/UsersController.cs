@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using AutoMapper;
 using Microsoft.AspNet.Mvc;
 using NannyApp.Models;
-using NannyApp.Services;
-
-// For more information on enabling Web API for empty projects, visit http://go.microsoft.com/fwlink/?LinkID=397860
+using NannyApp.Models.Interfaces;
+using NannyApp.ViewModels.Users;
+using System.Collections.Generic;
 
 namespace NannyApp.Controllers.API
 {
@@ -20,37 +17,30 @@ namespace NannyApp.Controllers.API
             _repository = repository;
         }
 
-        // GET: api/values
         [HttpGet]
-        public IEnumerable<ApplicationUser> Get()
+        public JsonResult Get()
         {
             var results = _repository.GetAllUsers();
-            return results;
+
+            if (results == null)
+            {
+                return Json(null);
+            }
+
+            return Json(Mapper.Map<IEnumerable<UserViewModel>>(results));
         }
 
-        // GET api/values/5
-        [HttpGet("{id}")]
-        public string Get(int id)
+        [HttpGet("{name}")]
+        public JsonResult Get(string name)
         {
-            return "value";
-        }
+            var results = _repository.GetUserByUserName(name);
 
-        // POST api/values
-        [HttpPost]
-        public void Post([FromBody]string value)
-        {
-        }
+            if(results == null)
+            {
+                return Json(null);
+            }
 
-        // PUT api/values/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody]string value)
-        {
-        }
-
-        // DELETE api/values/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
+            return Json(Mapper.Map<UserViewModel>(results));
         }
     }
 }

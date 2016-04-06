@@ -16,6 +16,10 @@ using NannyApp.Services;
 using System.Threading;
 using System.Data.SqlClient;
 using Newtonsoft.Json.Serialization;
+using AutoMapper;
+using NannyApp.ViewModels.Users;
+using NannyApp.ViewModels.Mappings;
+using NannyApp.Models.Interfaces;
 
 namespace NannyApp
 {
@@ -72,6 +76,7 @@ namespace NannyApp
                 .AddJsonOptions(options =>
                 {
                     options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
+                    options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
                 })
                 .AddMvcOptions(options =>
                 {
@@ -99,10 +104,11 @@ namespace NannyApp
                 options.StorageConnectionString = Configuration["StorageConnectionString"];
             });
             services.AddScoped<INannyAppRepository, NannyAppRepository>();
+            services.AddTransient<ApplicationDbContextSeedData>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        public async void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, ApplicationDbContextSeedData seeder)
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
@@ -137,6 +143,15 @@ namespace NannyApp
             app.UseApplicationInsightsExceptionTelemetry();
 
             app.UseStaticFiles();
+
+            Mapper.Initialize(config =>
+            {
+                config.AddProfile<UserMappingProfile>();
+                config.AddProfile<ProfilePhotoMappingProfile>();
+                config.AddProfile<ConnectionMappingProfile>();
+                config.AddProfile<FamilyMappingProfile>();
+                config.AddProfile<FamilyPhotoMappingProfile>();
+            });
 
             app.UseIdentity();
 
@@ -193,8 +208,10 @@ namespace NannyApp
             {
                 routes.MapRoute(
                     name: "default",
-                    template: "{controller=Home}/{action=Index}/{id?}");
+                    template: "{controller=Home}/{action=Index}/{id?}/{name?}");
             });
+
+            await seeder.EnsureSeedDataAsync();
         }
 
         // Entry point for the application.

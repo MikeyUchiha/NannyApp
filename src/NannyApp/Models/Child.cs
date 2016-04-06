@@ -10,7 +10,7 @@ namespace NannyApp.Models
         public string Color { get; set; }
         public string Allergies { get; set; }
         public string ChildNotes { get; set; }
-        public FilePath ChildPhoto { get; set; }
+        public ChildPhoto ChildPhoto { get; set; }
 
         public ICollection<Activity> Activities { get; set; }
     }

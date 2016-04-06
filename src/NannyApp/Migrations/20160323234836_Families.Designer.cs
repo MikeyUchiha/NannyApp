@@ -8,9 +8,10 @@ using NannyApp.Models;
 namespace NannyApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20160323234836_Families")]
+    partial class Families
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "7.0.0-rc1-16348")
@@ -211,8 +212,6 @@ namespace NannyApp.Migrations
 
                     b.Property<string>("ChildNotes");
 
-                    b.Property<int?>("ChildPhotoId");
-
                     b.Property<string>("Color");
 
                     b.Property<int?>("FamilyId");
@@ -243,8 +242,6 @@ namespace NannyApp.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<int?>("FamilyPhotoId");
-
                     b.Property<string>("GeneralNotes");
 
                     b.Property<string>("Name");
@@ -259,10 +256,11 @@ namespace NannyApp.Migrations
 
                     b.Property<int?>("ActivityId");
 
+                    b.Property<int?>("ChildId");
+
                     b.Property<DateTime>("DateUploaded");
 
-                    b.Property<string>("Discriminator")
-                        .IsRequired();
+                    b.Property<int?>("FamilyId");
 
                     b.Property<string>("FileName");
 
@@ -270,11 +268,9 @@ namespace NannyApp.Migrations
 
                     b.Property<string>("FileUrl");
 
+                    b.Property<string>("UserId");
+
                     b.HasKey("Id");
-
-                    b.HasAnnotation("Relational:DiscriminatorProperty", "Discriminator");
-
-                    b.HasAnnotation("Relational:DiscriminatorValue", "FilePath");
                 });
 
             modelBuilder.Entity("NannyApp.Models.Group", b =>
@@ -299,42 +295,6 @@ namespace NannyApp.Migrations
                     b.Property<string>("Name");
 
                     b.HasKey("Id");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.ActivityPhoto", b =>
-                {
-                    b.HasBaseType("NannyApp.Models.FilePath");
-
-                    b.Property<int?>("ActivityId1");
-
-                    b.HasAnnotation("Relational:DiscriminatorValue", "ActivityPhoto");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.ChildPhoto", b =>
-                {
-                    b.HasBaseType("NannyApp.Models.FilePath");
-
-                    b.Property<int?>("ChildId");
-
-                    b.HasAnnotation("Relational:DiscriminatorValue", "ChildPhoto");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.FamilyPhoto", b =>
-                {
-                    b.HasBaseType("NannyApp.Models.FilePath");
-
-                    b.Property<int?>("FamilyId");
-
-                    b.HasAnnotation("Relational:DiscriminatorValue", "FamilyPhoto");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.ProfilePhoto", b =>
-                {
-                    b.HasBaseType("NannyApp.Models.FilePath");
-
-                    b.Property<string>("UserId");
-
-                    b.HasAnnotation("Relational:DiscriminatorValue", "ProfilePhoto");
                 });
 
             modelBuilder.Entity("Microsoft.AspNet.Identity.EntityFramework.IdentityRoleClaim<string>", b =>
@@ -385,10 +345,6 @@ namespace NannyApp.Migrations
 
             modelBuilder.Entity("NannyApp.Models.Child", b =>
                 {
-                    b.HasOne("NannyApp.Models.FilePath")
-                        .WithMany()
-                        .HasForeignKey("ChildPhotoId");
-
                     b.HasOne("NannyApp.Models.Family")
                         .WithMany()
                         .HasForeignKey("FamilyId");
@@ -405,18 +361,23 @@ namespace NannyApp.Migrations
                         .HasForeignKey("UserId");
                 });
 
-            modelBuilder.Entity("NannyApp.Models.Family", b =>
-                {
-                    b.HasOne("NannyApp.Models.FilePath")
-                        .WithMany()
-                        .HasForeignKey("FamilyPhotoId");
-                });
-
             modelBuilder.Entity("NannyApp.Models.FilePath", b =>
                 {
                     b.HasOne("NannyApp.Models.Activity")
                         .WithMany()
                         .HasForeignKey("ActivityId");
+
+                    b.HasOne("NannyApp.Models.Child")
+                        .WithOne()
+                        .HasForeignKey("NannyApp.Models.FilePath", "ChildId");
+
+                    b.HasOne("NannyApp.Models.Family")
+                        .WithOne()
+                        .HasForeignKey("NannyApp.Models.FilePath", "FamilyId");
+
+                    b.HasOne("NannyApp.Models.ApplicationUser")
+                        .WithOne()
+                        .HasForeignKey("NannyApp.Models.FilePath", "UserId");
                 });
 
             modelBuilder.Entity("NannyApp.Models.Group", b =>
@@ -431,34 +392,6 @@ namespace NannyApp.Migrations
                     b.HasOne("NannyApp.Models.Category")
                         .WithMany()
                         .HasForeignKey("CategoryId");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.ActivityPhoto", b =>
-                {
-                    b.HasOne("NannyApp.Models.Activity")
-                        .WithMany()
-                        .HasForeignKey("ActivityId1");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.ChildPhoto", b =>
-                {
-                    b.HasOne("NannyApp.Models.Child")
-                        .WithMany()
-                        .HasForeignKey("ChildId");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.FamilyPhoto", b =>
-                {
-                    b.HasOne("NannyApp.Models.Family")
-                        .WithMany()
-                        .HasForeignKey("FamilyId");
-                });
-
-            modelBuilder.Entity("NannyApp.Models.ProfilePhoto", b =>
-                {
-                    b.HasOne("NannyApp.Models.ApplicationUser")
-                        .WithOne()
-                        .HasForeignKey("NannyApp.Models.ProfilePhoto", "UserId");
                 });
         }
     }

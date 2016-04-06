@@ -16,6 +16,6 @@ namespace NannyApp.Models
         public string SubCategory { get; set; }
         public string ActitivityNotes { get; set; }
 
-        public ICollection<FilePath> Photos { get; set; }
+        public ICollection<ActivityPhoto> ActivityPhotos { get; set; }
     }
 }

@@ -15,6 +15,7 @@ using Microsoft.AspNet.Hosting;
 using Microsoft.AspNet.Http;
 using Microsoft.Net.Http.Headers;
 using System.IO;
+using NannyApp.Models.Interfaces;
 
 namespace NannyApp.Controllers
 {
@@ -65,7 +66,7 @@ namespace NannyApp.Controllers
                 : "";
 
             var user = await GetCurrentUserAsync();
-            var profilephoto = _repository.GetUserWithProfilePhotoByUserName(User.GetUserName()).ProfilePhoto;
+            var profilephoto = _repository.GetUserByUserName(User.GetUserName()).ProfilePhoto;
             string profilePhotoUrl = null;
             if(profilephoto != null)
             {
@@ -342,7 +343,7 @@ namespace NannyApp.Controllers
         public IActionResult UploadProfilePhoto(IFormFile file)
         {
             _fileService.CreateAndConfigureAsync("profilephoto", true);
-            var user = _repository.GetUserWithProfilePhotoByUserName(User.GetUserName());
+            var user = _repository.GetUserByUserName(User.GetUserName());
             if (user == null)
             {
                 return View("Error");
@@ -355,8 +356,7 @@ namespace NannyApp.Controllers
                     var fileName = ContentDispositionHeaderValue.Parse(file.ContentDisposition).FileName.Trim('"').ToLower();
                     if (fileName.EndsWith(".png") || fileName.EndsWith(".jpg") || fileName.EndsWith(".gif"))
                     {
-                        var profilePhoto = new FilePath();
-                        profilePhoto.FileType = FileType.Profile_Photo;
+                        var profilePhoto = new ProfilePhoto();
 
                         var fileExtension = Path.GetExtension(fileName);
                         string filePath = User.GetUserName() + fileExtension;
@@ -401,7 +401,7 @@ namespace NannyApp.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult DeleteProfilePhoto()
         {
-            var user = _repository.GetUserWithProfilePhotoByUserName(User.GetUserName());
+            var user = _repository.GetUserByUserName(User.GetUserName());
             if (user == null)
             {
                 return View("Error");

@@ -17,7 +17,7 @@ namespace NannyApp.Models
         public DateTime LastLoginDate { get; internal set; }
         public string LastName { get; internal set; }
 
-        public FilePath ProfilePhoto { get; set; }
+        public ProfilePhoto ProfilePhoto { get; set; }
 
         public ICollection<Connection> Connections { get; set; }
         public ICollection<Group> Groups { get; set; }

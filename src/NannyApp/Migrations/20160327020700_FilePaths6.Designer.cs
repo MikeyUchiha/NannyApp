@@ -8,9 +8,10 @@ using NannyApp.Models;
 namespace NannyApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20160327020700_FilePaths6")]
+    partial class FilePaths6
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("ProductVersion", "7.0.0-rc1-16348")
@@ -211,8 +212,6 @@ namespace NannyApp.Migrations
 
                     b.Property<string>("ChildNotes");
 
-                    b.Property<int?>("ChildPhotoId");
-
                     b.Property<string>("Color");
 
                     b.Property<int?>("FamilyId");
@@ -243,8 +242,6 @@ namespace NannyApp.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<int?>("FamilyPhotoId");
-
                     b.Property<string>("GeneralNotes");
 
                     b.Property<string>("Name");
@@ -257,8 +254,6 @@ namespace NannyApp.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<int?>("ActivityId");
-
                     b.Property<DateTime>("DateUploaded");
 
                     b.Property<string>("Discriminator")
@@ -269,6 +264,8 @@ namespace NannyApp.Migrations
                     b.Property<int>("FileType");
 
                     b.Property<string>("FileUrl");
+
+                    b.Property<string>("UserId");
 
                     b.HasKey("Id");
 
@@ -305,7 +302,7 @@ namespace NannyApp.Migrations
                 {
                     b.HasBaseType("NannyApp.Models.FilePath");
 
-                    b.Property<int?>("ActivityId1");
+                    b.Property<int>("ActivityId");
 
                     b.HasAnnotation("Relational:DiscriminatorValue", "ActivityPhoto");
                 });
@@ -314,7 +311,7 @@ namespace NannyApp.Migrations
                 {
                     b.HasBaseType("NannyApp.Models.FilePath");
 
-                    b.Property<int?>("ChildId");
+                    b.Property<int>("ChildId");
 
                     b.HasAnnotation("Relational:DiscriminatorValue", "ChildPhoto");
                 });
@@ -323,7 +320,7 @@ namespace NannyApp.Migrations
                 {
                     b.HasBaseType("NannyApp.Models.FilePath");
 
-                    b.Property<int?>("FamilyId");
+                    b.Property<int>("FamilyId");
 
                     b.HasAnnotation("Relational:DiscriminatorValue", "FamilyPhoto");
                 });
@@ -332,7 +329,6 @@ namespace NannyApp.Migrations
                 {
                     b.HasBaseType("NannyApp.Models.FilePath");
 
-                    b.Property<string>("UserId");
 
                     b.HasAnnotation("Relational:DiscriminatorValue", "ProfilePhoto");
                 });
@@ -385,10 +381,6 @@ namespace NannyApp.Migrations
 
             modelBuilder.Entity("NannyApp.Models.Child", b =>
                 {
-                    b.HasOne("NannyApp.Models.FilePath")
-                        .WithMany()
-                        .HasForeignKey("ChildPhotoId");
-
                     b.HasOne("NannyApp.Models.Family")
                         .WithMany()
                         .HasForeignKey("FamilyId");
@@ -405,18 +397,11 @@ namespace NannyApp.Migrations
                         .HasForeignKey("UserId");
                 });
 
-            modelBuilder.Entity("NannyApp.Models.Family", b =>
-                {
-                    b.HasOne("NannyApp.Models.FilePath")
-                        .WithMany()
-                        .HasForeignKey("FamilyPhotoId");
-                });
-
             modelBuilder.Entity("NannyApp.Models.FilePath", b =>
                 {
-                    b.HasOne("NannyApp.Models.Activity")
-                        .WithMany()
-                        .HasForeignKey("ActivityId");
+                    b.HasOne("NannyApp.Models.ApplicationUser")
+                        .WithOne()
+                        .HasForeignKey("NannyApp.Models.FilePath", "UserId");
                 });
 
             modelBuilder.Entity("NannyApp.Models.Group", b =>
@@ -437,28 +422,25 @@ namespace NannyApp.Migrations
                 {
                     b.HasOne("NannyApp.Models.Activity")
                         .WithMany()
-                        .HasForeignKey("ActivityId1");
+                        .HasForeignKey("ActivityId");
                 });
 
             modelBuilder.Entity("NannyApp.Models.ChildPhoto", b =>
                 {
                     b.HasOne("NannyApp.Models.Child")
-                        .WithMany()
-                        .HasForeignKey("ChildId");
+                        .WithOne()
+                        .HasForeignKey("NannyApp.Models.ChildPhoto", "ChildId");
                 });
 
             modelBuilder.Entity("NannyApp.Models.FamilyPhoto", b =>
                 {
                     b.HasOne("NannyApp.Models.Family")
-                        .WithMany()
-                        .HasForeignKey("FamilyId");
+                        .WithOne()
+                        .HasForeignKey("NannyApp.Models.FamilyPhoto", "FamilyId");
                 });
 
             modelBuilder.Entity("NannyApp.Models.ProfilePhoto", b =>
                 {
-                    b.HasOne("NannyApp.Models.ApplicationUser")
-                        .WithOne()
-                        .HasForeignKey("NannyApp.Models.ProfilePhoto", "UserId");
                 });
         }
     }

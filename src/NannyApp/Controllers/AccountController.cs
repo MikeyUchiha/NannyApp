@@ -18,6 +18,7 @@ using Microsoft.Extensions.Configuration;
 using System.Data.SqlClient;
 using System.Globalization;
 using Microsoft.AspNet.Hosting;
+using NannyApp.Models.Interfaces;
 
 namespace NannyApp.Controllers
 {

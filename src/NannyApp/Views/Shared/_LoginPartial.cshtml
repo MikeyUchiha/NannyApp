@@ -8,7 +8,7 @@
             <li>
                 @{
                     string imgUrl = "";
-                    var user = _repository.GetUserWithProfilePhotoByUserName(User.GetUserName());
+                    var user = _repository.GetUserByUserName(User.GetUserName());
                     var profilePhoto = user.ProfilePhoto;
                     if (profilePhoto != null)
                     {

@@ -9,7 +9,12 @@ namespace NannyApp.Models
     public enum FileType
     {
         [Display(Name = "Profile Photo")]
-        Profile_Photo = 1,
-        Photo
+        ProfilePhoto = 1,
+        [Display(Name = "Family Photo")]
+        FamilyPhoto,
+        [Display(Name = "Child Photo")]
+        ChildPhoto,
+        [Display(Name = "Activity Photo")]
+        ActivityPhoto
     }
 }
